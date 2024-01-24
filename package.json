@@ -1,9 +1,7 @@
 {
   "scripts": {
-    "build": "node index.mjs && mkdir -p dist; cp index.html dist/index.html; cp -r images dist/",
-    "open": "open dist/index.html"
+    "build": "node index.mjs && mkdir -p dist; cp index.html dist/index.html; cp -r images dist/"
   },
-  "dependencies": {},
   "devDependencies": {
     "puppeteer": "^21.5.2",
     "puppeteer-extra": "^3.3.6",
