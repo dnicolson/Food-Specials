@@ -47,7 +47,7 @@ const cache = {
   const services = {
     'ubereats': ubereats,
     'wolt': wolt,
-    'lieferando': lieferando,
+    // 'lieferando': lieferando,
   }
 
   for (const service of Object.keys(services)) {
