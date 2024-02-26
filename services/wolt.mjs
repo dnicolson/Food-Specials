@@ -69,7 +69,7 @@ export default async({ url, postCode }, cache) => {
 
       if (!cache.get(filename) || cache.tooOld(filename)) {
         try {
-          await page.goto(link);
+          await page.goto(link, {'waitUntil' : 'networkidle0'});
         } catch (error) {
           console.error('Error:', error);
           continue;
