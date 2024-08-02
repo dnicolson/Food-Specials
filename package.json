@@ -3,7 +3,7 @@
     "build": "node index.mjs && mkdir -p dist; cp index.html dist/index.html; cp -r images dist/"
   },
   "devDependencies": {
-    "puppeteer": "^21.5.2",
+    "puppeteer": "^22.15.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2"
   }
