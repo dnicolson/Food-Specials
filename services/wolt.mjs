@@ -7,14 +7,14 @@ function flattenArray(arr) {
 }
 
 export default async({ url, postCode }, cache) => {
-   const browser = await puppeteer.launch({headless: 'new'});
+  const browser = await puppeteer.launch({headless: 'new'});
   const page = await browser.newPage();
   await page.setViewport({ width: 1200, height: 4000 });
   let html = '';
 
   try {
     await page.goto(url);
-    
+
     await page.waitForSelector('button[data-localization-key="gdpr-consents.banner.accept-button"]');
     await page.click('button[data-localization-key="gdpr-consents.banner.accept-button"]');
 
@@ -22,9 +22,10 @@ export default async({ url, postCode }, cache) => {
     await page.waitForSelector(addressInput);
     await page.type(addressInput, postCode);
 
-    const matchSelector = `(//div[contains(text(), "${postCode}") and starts-with(@class, "sc")])[1]`;
-    await page.waitForXPath(matchSelector);
-    const [result] = await page.$x(matchSelector);
+    const matchSelector = `//div[contains(text(), "${postCode}")][1]`;
+    await page.waitForSelector(`xpath/${matchSelector}`);
+
+    const [result] = await page.$$(`xpath/${matchSelector}`);
     if (!result) {
       console.log('Error entering address.');
       return;
@@ -32,7 +33,7 @@ export default async({ url, postCode }, cache) => {
 
     await result.click();
 
-    await page.waitForTimeout(5000);
+    await page.evaluate(() => new Promise(r => setTimeout(r, 5000)))
 
     await page.waitForSelector('h2');
 
@@ -69,7 +70,7 @@ export default async({ url, postCode }, cache) => {
 
       if (!cache.get(filename) || cache.tooOld(filename)) {
         try {
-          await page.goto(link, {'waitUntil' : 'networkidle0'});
+          await page.goto(link, {'waitUntil': 'networkidle0'});
         } catch (error) {
           console.error('Error:', error);
           continue;
@@ -77,26 +78,19 @@ export default async({ url, postCode }, cache) => {
 
         const specialsSelector = '(//*[@data-test-id="MenuSection"])[1]';
         try {
-          await page.waitForXPath(specialsSelector);
+          await page.waitForSelector(`xpath/${specialsSelector}`);
         } catch (error) {
           console.error('Error:', error);
           continue;
         }
 
-        const elementHandle = (await page.$x(specialsSelector))[0];
+        const elementHandle = (await page.$$(`xpath/${specialsSelector}`))[0];
         if (!elementHandle) {
           console.log('Specials element not found.');
           continue;
         }
 
-        const boundingBox = await elementHandle.boundingBox();
-        if (boundingBox) {
-          const screenshotOptions = {
-            path: imagePath,
-            clip: boundingBox,
-          };
-          await elementHandle.screenshot(screenshotOptions);
-        }
+        await elementHandle.screenshot({path: imagePath});
 
         title = await page.$eval('h1', h1 => h1.textContent);
 
@@ -111,7 +105,7 @@ export default async({ url, postCode }, cache) => {
                <img src="${imagePath}">
                <hr>`;
     }
-    
+
   } catch (error) {
     console.error('Error:', error);
   } finally {

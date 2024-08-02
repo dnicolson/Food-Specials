@@ -35,7 +35,8 @@ export default async({ url }, cache) => {
 
   try {
     await page.goto(url);
-    await page.waitForXPath('//picture/img');
+    const xpath = '//picture/img';
+    await page.waitForSelector(`xpath/${xpath}`);
 
     const restaurants = await page.evaluate(() => {
       const anchorElements = Array.from(document.body.querySelectorAll('a[data-testid="store-card"]'));
@@ -52,7 +53,7 @@ export default async({ url }, cache) => {
 
       if (!cache.get(filename) || cache.tooOld(filename)) {
         try {
-          await page.goto(link, {'waitUntil' : 'networkidle0'});
+          await page.goto(link, {'waitUntil': 'networkidle0'});
         } catch (error) {
           console.error('Error:', error);
           continue;
@@ -70,14 +71,7 @@ export default async({ url }, cache) => {
           continue;
         }
 
-        const boundingBox = await elementHandle.boundingBox();
-        if (boundingBox) {
-          const screenshotOptions = {
-            path: imagePath,
-            clip: boundingBox,
-          };
-          await elementHandle.screenshot(screenshotOptions);
-        }
+        await elementHandle.screenshot({path: imagePath});
 
         title = await page.$eval('h1', h1 => h1.textContent);
 
@@ -93,7 +87,7 @@ export default async({ url }, cache) => {
                <img src="${imagePath}">
                <hr>`;
     }
-    
+
   } catch (error) {
     console.error('Error:', error);
   } finally {

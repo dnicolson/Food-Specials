@@ -21,7 +21,7 @@ export default async ({ deliveryAreaId, postalCode }, cache) => {
                                                       .map(r => r.primarySlug)
                                                       .map(link => `https://www.lieferando.de/en/menu/${link}`);
     console.log(`${restaurants.length} restaurants`);
-    
+
     for (const link of restaurants) {
       console.log(link);
 
@@ -31,7 +31,7 @@ export default async ({ deliveryAreaId, postalCode }, cache) => {
 
       if (!cache.get(filename) || cache.tooOld(filename)) {
         try {
-          await page.goto(link);
+          await page.goto(link, {'waitUntil': 'networkidle0'});
         } catch (error) {
           console.error('Error:', error);
           continue;
@@ -55,14 +55,9 @@ export default async ({ deliveryAreaId, postalCode }, cache) => {
           continue;
         }
 
-        const boundingBox = await elementHandle.boundingBox();
-        if (boundingBox) {
-          const screenshotOptions = {
-            path: imagePath,
-            clip: boundingBox,
-          };
-          await elementHandle.screenshot(screenshotOptions);
-        }
+        await page.evaluate(() => new Promise(r => setTimeout(r, 1000)))
+
+        await elementHandle.screenshot({path: imagePath});
 
         title = await page.$eval('h1', h1 => h1.textContent);
 
@@ -73,7 +68,7 @@ export default async ({ deliveryAreaId, postalCode }, cache) => {
       }
 
       title = cache.get(filename)['title'];
-      
+
       html += `<h2><a href="${link}">${title}</a></h2>
                <img src="${imagePath}">
                <hr>`;
