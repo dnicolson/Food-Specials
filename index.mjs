@@ -57,5 +57,7 @@ const cache = {
     html = html.replace(`{{${service}}}`, await services[service](CONFIG[service], cache));
   };
 
+  html = html.replace(`{{date}}`, new Date().toLocaleString('de-DE'));
+
   fs.writeFileSync('index.html', html);
 })();
