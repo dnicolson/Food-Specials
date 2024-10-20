@@ -9,8 +9,13 @@ export default async ({ deliveryAreaId, postalCode }, cache) => {
     }
   });
 
-  const browser = await puppeteer.use(StealthPlugin()).launch({headless: false});
+  const browser = await puppeteer.use(StealthPlugin()).launch({headless: 'new'});
   const page = (await browser.pages())[0];
+  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+  await page.setExtraHTTPHeaders({
+    'accept-language': 'en-US,en;q=0.9'
+  });
+
   await page.setViewport({ width: 1200, height: 4000 });
 
   let html = '';
@@ -31,19 +36,15 @@ export default async ({ deliveryAreaId, postalCode }, cache) => {
 
       if (!cache.get(filename) || cache.tooOld(filename)) {
         try {
-          await page.goto(link, {'waitUntil': 'networkidle0'});
+          await page.goto(`${link}#discounts`, {'waitUntil': 'networkidle0'});
         } catch (error) {
           console.error('Error:', error);
           continue;
         }
 
-        const buttonSelector = '.swiper-wrapper:nth-child(1) li:nth-child(1)';
-        await page.waitForSelector(buttonSelector);
-        await page.click(buttonSelector);
-
         const specialsSelector = 'div[data-qa=modal-content]';
         try {
-          await page.waitForSelector(specialsSelector, {timeout: 5000});
+          await page.waitForSelector(specialsSelector);
         } catch (error) {
           console.log('Modal content element not found.');
           continue;
@@ -54,8 +55,6 @@ export default async ({ deliveryAreaId, postalCode }, cache) => {
           console.log('Specials element not found.');
           continue;
         }
-
-        await page.evaluate(() => new Promise(r => setTimeout(r, 1000)))
 
         await elementHandle.screenshot({path: imagePath});
 
