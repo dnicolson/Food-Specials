@@ -86,7 +86,7 @@ async function fetchOffers(request) {
 
 export default async function getSpecials({ url }, cache, retrieve = fetchOffers) {
   const request = requestFromUrl(url);
-  const key = `ubereats:offers:${request.locale}:${request.point.latitude},${request.point.longitude}`;
+  const key = `ubereats:offers:v1:${request.locale}:${request.point.latitude},${request.point.longitude}`;
   const saved = cache.get(key);
   const age = Date.now() - Date.parse(saved?.snapshot?.fetched_at);
   const usable = validSnapshot(saved?.snapshot) && age >= 0;

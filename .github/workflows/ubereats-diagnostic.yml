@@ -45,7 +45,9 @@ jobs:
         run: python scripts/diagnose-ubereats.py --source .diagnostics/upstream --output .diagnostics/results
 
       - name: Test rendering and cached fallback
-        run: node --test tests/*.test.mjs
+        run: |
+          node --test tests/*.test.mjs
+          python -m unittest discover -s tests
 
       - name: Verify the live Node and Python integration
         env:

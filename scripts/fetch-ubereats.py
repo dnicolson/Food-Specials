@@ -1,7 +1,13 @@
 import json
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+
+def offer_labels(labels):
+    pattern = r"%|\b(?:buy|save|off|discount|deals?|free|sale|offers?|rabatt|gratis|kostenlos|spare|sparen|aktion)\b|\b\d+\s*(?:for|für)\s*\d+\b"
+    return [label for label in labels if isinstance(label, str) and re.search(pattern, label, re.I)]
 
 
 def promotion_items(sections):
@@ -41,10 +47,12 @@ def main():
     if not isinstance(feed, dict) or not isinstance(feed.get("feedItems"), list):
         raise ValueError("Unexpected Uber Eats feed shape")
     collections = parsers.feed_collections(feed, country=locale)
+    collections.sort(key=lambda shelf: 0 if re.search(r"today|heutig", shelf.get("title") or "", re.I) else 1)
     cards = [card for shelf in collections for card in shelf.get("stores", [])]
     cards += parsers.feed_stores(feed, country=locale)
     unique = {}
     for card in cards:
+        card["offers"] = offer_labels(card.get("offers") or [])
         if card.get("id") and card.get("offers") and card.get("name") and card.get("link"):
             unique.setdefault(card["id"], card)
     stores = list(unique.values())[:20]

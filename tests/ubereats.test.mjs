@@ -4,7 +4,7 @@ import getSpecials, { renderSpecials, requestFromUrl } from '../services/ubereat
 
 const point = { latitude: 52.5097995, longitude: 13.4581929 };
 const url = `https://www.ubereats.com/de-en/search?pl=${Buffer.from(encodeURIComponent(JSON.stringify(point))).toString('base64')}`;
-const key = 'ubereats:offers:de-en:52.5097995,13.4581929';
+const key = 'ubereats:offers:v1:de-en:52.5097995,13.4581929';
 
 function snapshot(hoursAgo = 0) {
   return {
