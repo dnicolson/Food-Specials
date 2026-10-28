@@ -1,6 +1,10 @@
 {
   "scripts": {
-    "build": "node index.mjs && mkdir -p dist; cp index.html dist/index.html; cp -r images dist/"
+    "build": "node index.mjs && mkdir -p dist && cp index.html dist/index.html && cp -r images dist/",
+    "test": "node --test tests/*.test.mjs && npm test --prefix packages/ubereats-scraper"
+  },
+  "dependencies": {
+    "@food-specials/ubereats-scraper": "file:packages/ubereats-scraper"
   },
   "devDependencies": {
     "puppeteer": "^23",

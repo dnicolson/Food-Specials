@@ -55,7 +55,7 @@ def main():
         card["offers"] = offer_labels(card.get("offers") or [])
         if card.get("id") and card.get("offers") and card.get("name") and card.get("link"):
             unique.setdefault(card["id"], card)
-    stores = list(unique.values())[:20]
+    stores = list(unique.values())[:request.get("limit", 20)]
     fetch_menus = True
     menu_failures = 0
     for card in stores:

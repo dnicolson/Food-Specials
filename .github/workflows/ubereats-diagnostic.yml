@@ -9,6 +9,9 @@ on:
       - scripts/**
       - services/ubereats.mjs
       - tests/**
+      - packages/**
+      - package.json
+      - package-lock.json
       - .github/workflows/ubereats-diagnostic.yml
 
 permissions:
@@ -39,20 +42,17 @@ jobs:
           persist-credentials: false
 
       - name: Install diagnostic dependencies
-        run: python -m pip install -r scripts/ubereats-diagnostic-requirements.txt
+        run: |
+          npm ci --ignore-scripts
+          python -m pip install -r packages/ubereats-scraper/python/requirements.txt
 
       - name: Compare example and Berlin requests
-        run: python scripts/diagnose-ubereats.py --source .diagnostics/upstream --output .diagnostics/results
+        run: python packages/ubereats-scraper/diagnostics/compare.py --source .diagnostics/upstream --output .diagnostics/results
 
       - name: Test rendering and cached fallback
-        run: |
-          node --test tests/*.test.mjs
-          python -m unittest discover -s tests
+        run: npm test
 
-      - name: Verify the live Node and Python integration
-        env:
-          UBER_EATS_PYTHON: python
-          UBER_EATS_SOURCE: .diagnostics/upstream
+      - name: Verify package setup and the live integration
         run: node scripts/smoke-ubereats.mjs
 
       - name: Save diagnostic results

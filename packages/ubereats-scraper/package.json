@@ -1,0 +1,18 @@
+{
+  "name": "@food-specials/ubereats-scraper",
+  "version": "0.1.0",
+  "private": true,
+  "description": "JavaScript access to nearby Uber Eats offers using the OmkarCloud Python scraper",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.mjs"
+    }
+  },
+  "files": ["index.mjs", "index.d.ts", "setup.sh", "python/fetch.py", "python/requirements.txt"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "test": "node --test test/*.test.mjs && python3 -m unittest discover -s test"
+  }
+}

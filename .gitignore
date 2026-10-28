@@ -4,3 +4,6 @@ dist
 index.html
 cache.json
 images/*
+.cache/
+.diagnostics/
+__pycache__/

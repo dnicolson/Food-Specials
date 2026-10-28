@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-project_root="$(cd "$(dirname "$0")/.." && pwd)"
-runtime_dir="$project_root/.cache/ubereats"
+package_root="$(cd "$(dirname "$0")" && pwd)"
+runtime_dir="$1"
 upstream_commit=a918dea4da9c658607afb70784b7feeda7cf458d
-requirements="$project_root/scripts/ubereats-diagnostic-requirements.txt"
+requirements="$package_root/python/requirements.txt"
 
 mkdir -p "$runtime_dir"
 if [ ! -d "$runtime_dir/source/.git" ]; then

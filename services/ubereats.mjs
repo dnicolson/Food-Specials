@@ -1,9 +1,5 @@
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-import { fileURLToPath } from 'node:url';
+import { fetchOffers } from '@food-specials/ubereats-scraper';
 
-const execFileAsync = promisify(execFile);
-const root = fileURLToPath(new URL('../', import.meta.url));
 const freshFor = 4 * 60 * 60 * 1000;
 const staleFor = 24 * 60 * 60 * 1000;
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({
@@ -71,20 +67,7 @@ export function renderSpecials(data, stale = false) {
   return html;
 }
 
-async function fetchOffers(request) {
-  const python = process.env.UBER_EATS_PYTHON || `${root}.cache/ubereats/venv/bin/python`;
-  const source = process.env.UBER_EATS_SOURCE || `${root}.cache/ubereats/source`;
-  const result = execFileAsync(python, [`${root}scripts/fetch-ubereats.py`, source], {
-    cwd: root, timeout: 8 * 60 * 1000, maxBuffer: 4 * 1024 * 1024,
-  });
-  result.child.stdin.on('error', () => {});
-  result.child.stdin.end(JSON.stringify(request));
-  const { stdout, stderr } = await result;
-  if (stderr) console.error(stderr.trim());
-  return JSON.parse(stdout);
-}
-
-export default async function getSpecials({ url }, cache, retrieve = fetchOffers) {
+export default async function getSpecials({ url }, cache, retrieve = request => fetchOffers({ ...request.point, locale: request.locale })) {
   const request = requestFromUrl(url);
   const key = `ubereats:offers:v1:${request.locale}:${request.point.latitude},${request.point.longitude}`;
   const saved = cache.get(key);

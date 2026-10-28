@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 
-spec = importlib.util.spec_from_file_location("fetch_ubereats", Path(__file__).resolve().parents[1] / "scripts/fetch-ubereats.py")
+spec = importlib.util.spec_from_file_location("fetch_ubereats", Path(__file__).resolve().parents[1] / "python/fetch.py")
 fetcher = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(fetcher)
 
