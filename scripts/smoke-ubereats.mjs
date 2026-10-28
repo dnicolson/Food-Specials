@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import getSpecials from '../services/ubereats.mjs';
+
+const point = { latitude: 52.5097995, longitude: 13.4581929 };
+const location = Buffer.from(encodeURIComponent(JSON.stringify(point))).toString('base64');
+const url = `https://www.ubereats.com/de-en/search?pl=${location}`;
+const saved = {};
+const cache = { get: key => saved[key], set: (key, value) => { saved[key] = value; } };
+const html = await getSpecials({ url }, cache);
+const snapshot = Object.values(saved)[0]?.snapshot;
+assert.ok(snapshot?.stores.length > 0, 'The live feed must contain offer stores');
+const items = snapshot.stores.reduce((n, store) => n + store.items.length, 0);
+assert.ok(items > 0, 'Live menus must contain promoted items');
+assert.match(html, /<article>/);
+assert.doesNotMatch(html, /Live update unavailable/);
+await fs.mkdir('.diagnostics/results', { recursive: true });
+await fs.writeFile('.diagnostics/results/build.html', `<!doctype html><html><head><meta charset="utf-8"><title>Uber Eats diagnostic</title></head><body>${html}</body></html>`);
+await fs.writeFile('.diagnostics/results/offers.json', JSON.stringify(snapshot, null, 2));
+console.log(`Live integration passed: ${snapshot.stores.length} stores and ${items} promoted items`);

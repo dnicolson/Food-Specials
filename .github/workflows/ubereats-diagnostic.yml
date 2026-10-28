@@ -6,8 +6,9 @@ on:
     branches:
       - codex/ubereats-diagnostic
     paths:
-      - scripts/diagnose-ubereats.py
-      - scripts/ubereats-diagnostic-requirements.txt
+      - scripts/**
+      - services/ubereats.mjs
+      - tests/**
       - .github/workflows/ubereats-diagnostic.yml
 
 permissions:
@@ -26,6 +27,10 @@ jobs:
         with:
           python-version: '3.11'
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - uses: actions/checkout@v4
         with:
           repository: omkarcloud/uber-eats-scraper
@@ -38,6 +43,15 @@ jobs:
 
       - name: Compare example and Berlin requests
         run: python scripts/diagnose-ubereats.py --source .diagnostics/upstream --output .diagnostics/results
+
+      - name: Test rendering and cached fallback
+        run: node --test tests/*.test.mjs
+
+      - name: Verify the live Node and Python integration
+        env:
+          UBER_EATS_PYTHON: python
+          UBER_EATS_SOURCE: .diagnostics/upstream
+        run: node scripts/smoke-ubereats.mjs
 
       - name: Save diagnostic results
         if: always()

@@ -1,98 +1,106 @@
-import puppeteer from 'puppeteer';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
 
-const getSpecialsSelector = () => {
-  const generateSelector = (target) => {
-    const selectorPath = [];
-    while (target.tagName) {
-        let i = 0;
-        if (target.parentNode) {
-            const children = target.parentNode.children;
-            while (i < children.length && children[i] !== target) {
-                i++;
-            }
-        }
-        selectorPath.unshift(target.nodeName + (
-            i > 0 ? `:nth-child(${i + 1})` : ''));
-        target = target.parentNode;
-    }
-    return selectorPath.join(' > ');
-  }
+const execFileAsync = promisify(execFile);
+const root = fileURLToPath(new URL('../', import.meta.url));
+const freshFor = 4 * 60 * 60 * 1000;
+const staleFor = 24 * 60 * 60 * 1000;
+const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+})[char]);
 
-  const specialsImage = document.querySelector('img[src$="promo-tag-3x.png"]');
-  if (!specialsImage) {
+function storeLink(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && url.hostname === 'www.ubereats.com' ? url.href : null;
+  } catch {
     return null;
   }
-
-  return generateSelector(specialsImage.closest('li'));
 }
 
-export default async({ url }, cache) => {
-  const browser = await puppeteer.launch({headless: 'new'});
-  const page = await browser.newPage();
-  await page.setViewport({ width: 1269 + 434, height: 4000 });
+function linkedName(name, href) {
+  const link = storeLink(href);
+  return link ? `<a href="${escapeHtml(link)}">${escapeHtml(name)}</a>` : escapeHtml(name);
+}
 
-  let html = '';
-
-  try {
-    await page.goto(url);
-    const xpath = '//picture/img';
-    await page.waitForSelector(`xpath/${xpath}`);
-
-    const restaurants = await page.evaluate(() => {
-      const anchorElements = Array.from(document.body.querySelectorAll('a[data-testid="store-card"]'));
-      return anchorElements.map(anchor => anchor.href);
-    });
-    console.log(`${restaurants.length} restaurants`);
-
-    for (const link of restaurants) {
-      console.log(link);
-
-      const filename = link.replace(/.*store\/([^/]+)\/.*/, '$1.png').replace(/%([0-9A-Fa-f]{2})/, '');
-      const imagePath = `images/ubereats/${filename}`;
-      let title;
-
-      if (!cache.get(filename) || cache.tooOld(filename)) {
-        try {
-          await page.goto(link, {'waitUntil': 'networkidle0'});
-        } catch (error) {
-          console.error('Error:', error);
-          continue;
-        }
-
-        const specialsSelector = await page.evaluate(getSpecialsSelector);
-        if (!specialsSelector) {
-          console.log('Specials selector not found.');
-          continue;
-        }
-
-        const elementHandle = await page.$(specialsSelector);
-        if (!elementHandle) {
-          console.log('Specials element not found.');
-          continue;
-        }
-
-        await elementHandle.screenshot({path: imagePath});
-
-        title = await page.$eval('h1', h1 => h1.textContent);
-
-        cache.set(filename, {
-          title,
-          date: new Date()
-        });
-      }
-
-      title = cache.get(filename)['title'];
-
-      html += `<h2><a href="${link}">${title}</a></h2>
-               <img src="${imagePath}">
-               <hr>`;
-    }
-
-  } catch (error) {
-    console.error('Error:', error);
-  } finally {
-    await browser.close();
+export function requestFromUrl(value) {
+  const url = new URL(value);
+  const location = JSON.parse(decodeURIComponent(Buffer.from(url.searchParams.get('pl') || '', 'base64').toString()));
+  const { latitude, longitude } = location;
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)
+      || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+    throw new Error('Uber Eats URL must contain valid delivery coordinates');
   }
+  const locale = url.pathname.split('/').filter(Boolean)[0];
+  if (!/^[a-z]{2}(?:-[a-z]{2})?$/.test(locale)) {
+    throw new Error('Uber Eats URL must contain a country locale');
+  }
+  return { point: { latitude, longitude }, locale };
+}
 
+function validSnapshot(data) {
+  return data && Number.isFinite(Date.parse(data.fetched_at)) && Array.isArray(data.stores)
+    && data.stores.every(store => typeof store.name === 'string'
+      && Array.isArray(store.offers) && store.offers.every(offer => typeof offer === 'string')
+      && Array.isArray(store.items) && store.items.every(item => typeof item.name === 'string'
+        && typeof item.offer === 'string'));
+}
+
+export function renderSpecials(data, stale = false) {
+  const timestamp = new Date(data.fetched_at).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' });
+  let html = `<p>${stale ? 'Live update unavailable. Showing saved offers from' : 'Offers updated'} <time datetime="${escapeHtml(data.fetched_at)}">${escapeHtml(timestamp)}</time>${stale ? '. These offers may have changed.' : '.'}</p>`;
+  if (!data.stores.length) return `${html}<p>No current Uber Eats offers were found for this address.</p>`;
+  for (const store of data.stores) {
+    html += `<article><h2>${linkedName(store.name, store.link)}</h2><ul>`;
+    html += store.offers.map(offer => `<li>${escapeHtml(offer)}</li>`).join('');
+    html += '</ul>';
+    if (store.items.length) {
+      html += '<table class="table"><thead><tr><th>Item</th><th>Listed price</th><th>Offer</th></tr></thead><tbody>';
+      for (const item of store.items) {
+        const price = Number.isFinite(item.price) && /^[A-Z]{3}$/.test(store.currency || '')
+          ? new Intl.NumberFormat('en-GB', { style: 'currency', currency: store.currency }).format(item.price) : '';
+        const limit = Number.isInteger(item.max_redemptions) && item.max_redemptions > 0
+          ? ` (up to ${item.max_redemptions} redemptions)` : '';
+        html += `<tr><td>${linkedName(item.name, item.link)}</td><td>${escapeHtml(price)}</td><td>${escapeHtml(item.offer + limit)}</td></tr>`;
+      }
+      html += '</tbody></table>';
+    }
+    html += '</article><hr>';
+  }
   return html;
-};
+}
+
+async function fetchOffers(request) {
+  const python = process.env.UBER_EATS_PYTHON || `${root}.cache/ubereats/venv/bin/python`;
+  const source = process.env.UBER_EATS_SOURCE || `${root}.cache/ubereats/source`;
+  const result = execFileAsync(python, [`${root}scripts/fetch-ubereats.py`, source], {
+    cwd: root, timeout: 8 * 60 * 1000, maxBuffer: 4 * 1024 * 1024,
+  });
+  result.child.stdin.on('error', () => {});
+  result.child.stdin.end(JSON.stringify(request));
+  const { stdout, stderr } = await result;
+  if (stderr) console.error(stderr.trim());
+  return JSON.parse(stdout);
+}
+
+export default async function getSpecials({ url }, cache, retrieve = fetchOffers) {
+  const request = requestFromUrl(url);
+  const key = `ubereats:offers:${request.locale}:${request.point.latitude},${request.point.longitude}`;
+  const saved = cache.get(key);
+  const age = Date.now() - Date.parse(saved?.snapshot?.fetched_at);
+  const usable = validSnapshot(saved?.snapshot) && age >= 0;
+  if (usable && age < freshFor) return renderSpecials(saved.snapshot);
+  let snapshot;
+  try {
+    snapshot = await retrieve(request);
+    if (!validSnapshot(snapshot)) throw new Error('Unexpected Uber Eats offer data');
+  } catch (error) {
+    console.error('Uber Eats live update failed:', error.stderr?.trim() || error.message);
+    if (usable && age < staleFor) return renderSpecials(saved.snapshot, true);
+    throw new Error('Uber Eats retrieval failed and no recent saved offers are available', { cause: error });
+  }
+  cache.set(key, { date: snapshot.fetched_at, snapshot });
+  console.log(`Uber Eats: ${snapshot.stores.length} offer cards, ${snapshot.stores.reduce((n, store) => n + store.items.length, 0)} promoted items`);
+  return renderSpecials(snapshot);
+}
