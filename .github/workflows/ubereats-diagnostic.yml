@@ -1,0 +1,49 @@
+name: Diagnose Uber Eats access
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/ubereats-diagnostic
+    paths:
+      - scripts/diagnose-ubereats.py
+      - scripts/ubereats-diagnostic-requirements.txt
+      - .github/workflows/ubereats-diagnostic.yml
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: macos-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - uses: actions/checkout@v4
+        with:
+          repository: omkarcloud/uber-eats-scraper
+          ref: a918dea4da9c658607afb70784b7feeda7cf458d
+          path: .diagnostics/upstream
+          persist-credentials: false
+
+      - name: Install diagnostic dependencies
+        run: python -m pip install -r scripts/ubereats-diagnostic-requirements.txt
+
+      - name: Compare example and Berlin requests
+        run: python scripts/diagnose-ubereats.py --source .diagnostics/upstream --output .diagnostics/results
+
+      - name: Save diagnostic results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ubereats-diagnostic
+          path: .diagnostics/results
+          if-no-files-found: warn
+          retention-days: 7
